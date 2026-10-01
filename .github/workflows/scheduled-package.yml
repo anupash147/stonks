@@ -36,6 +36,13 @@ jobs:
   run-package:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Add these values under Settings > Secrets and variables > Actions >
+      # Repository secrets. GitHub injects them only at runtime.
+      ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+      ALPACA_PAPER: ${{ vars.ALPACA_PAPER || 'true' }}
+      TICKER_FILE: ${{ vars.TICKER_FILE || 'tickers.txt' }}
 
     steps:
       - name: Check out repository
@@ -44,8 +51,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
           cache: pip
+
+      - name: Validate required secrets are configured
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${ALPACA_API_KEY}" || -z "${ALPACA_SECRET_KEY}" ]]; then
+            echo "ALPACA_API_KEY and ALPACA_SECRET_KEY repository secrets are required."
+            exit 1
+          fi
 
       - name: Verify EST execution time
         id: schedule-window

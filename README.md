@@ -50,7 +50,7 @@ uv sync
 
 ### Configuration
 
-Create a `.env` file:
+For local runs, create a `.env` file (it is ignored by Git):
 
 ```bash
 # Alpaca API credentials
@@ -71,6 +71,31 @@ TRAILING_STOP=false              # Enable trailing stop mode
 TRAILING_STOP_ACTIVATION=5.0     # Activate trailing stop at +X% gain
 TRAILING_STOP_TRAIL=2.0          # Trail by X% below peak price
 ```
+
+### GitHub Actions configuration
+
+The scheduled workflow does not use a committed `.env` file. Configure the
+following two **repository secrets** at **Settings → Secrets and variables →
+Actions → New repository secret**:
+
+| Secret | Value |
+|--------|-------|
+| `ALPACA_API_KEY` | Alpaca API key |
+| `ALPACA_SECRET_KEY` | Alpaca secret key |
+
+The workflow injects these secrets as environment variables only while the job
+is running. Do not put the values in workflow YAML, repository variables, or
+the repository files.
+
+Set the `PACKAGE_RUN_COMMAND` repository variable to `python main.py` so the
+generic scheduled workflow runs this bot. `PACKAGE_INSTALL_COMMAND` is
+optional and defaults to `pip install .`.
+
+Non-sensitive overrides can be configured as repository variables, including
+`ALPACA_PAPER` (defaults to `true`), `TICKER_FILE` (defaults to
+`tickers.txt`), and the strategy variables listed below. GitHub Actions
+secrets are preferred for credentials; repository variables are not encrypted
+and should not contain secrets.
 
 ### Create Your Watchlist
 
