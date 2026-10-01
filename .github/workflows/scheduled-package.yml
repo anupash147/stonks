@@ -1,0 +1,92 @@
+name: Scheduled Package Runner
+
+on:
+  schedule:
+    # Fixed EST (UTC-5), Monday through Friday.
+    # 10:30 EST = 15:30 UTC
+    - cron: "30 15 * * 1-5"
+
+    # 13:45 EST = 18:45 UTC
+    - cron: "45 18 * * 1-5"
+
+    # 16:30 EST = 21:30 UTC
+    - cron: "30 21 * * 1-5"
+
+  workflow_dispatch:
+    inputs:
+      run_now:
+        description: "Run the package immediately, without waiting for an EST schedule time"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-package-runner
+  cancel-in-progress: false
+
+env:
+  # Configure these as repository variables when the target package is known.
+  PACKAGE_INSTALL_COMMAND: ${{ vars.PACKAGE_INSTALL_COMMAND || 'pip install .' }}
+  PACKAGE_RUN_COMMAND: ${{ vars.PACKAGE_RUN_COMMAND }}
+
+jobs:
+  run-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Verify EST execution time
+        id: schedule-window
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.run_now }}" == "true" ]]; then
+            echo "Manual test run requested; bypassing the EST schedule check."
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Etc/GMT+5 is intentionally UTC-5. POSIX Etc/GMT names have
+          # reversed signs, so this remains EST rather than switching to EDT.
+          est_time="$(TZ=Etc/GMT+5 date '+%H:%M %Z')"
+          echo "Current fixed EST time: ${est_time}"
+
+          case "${est_time%% *}" in
+            10:30|13:45|16:30)
+              echo "allowed=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "allowed=false" >> "$GITHUB_OUTPUT"
+              echo "This invocation is outside the configured EST execution times."
+              ;;
+          esac
+
+      - name: Install package
+        if: steps.schedule-window.outputs.allowed == 'true'
+        run: ${{ env.PACKAGE_INSTALL_COMMAND }}
+
+      - name: Run package
+        if: steps.schedule-window.outputs.allowed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${PACKAGE_RUN_COMMAND}" ]]; then
+            echo "PACKAGE_RUN_COMMAND repository variable is required."
+            exit 1
+          fi
+
+          ${PACKAGE_RUN_COMMAND}
