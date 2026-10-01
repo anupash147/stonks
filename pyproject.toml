@@ -21,3 +21,12 @@ dev = [
     "ruff>=0.14.9",
     "ty>=0.0.2",
 ]
+
+[tool.setuptools]
+py-modules = [
+    "main",
+    "screener",
+    "config",
+    "clean_tickers",
+    "gen_tickers",
+]
