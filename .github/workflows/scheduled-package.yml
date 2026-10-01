@@ -30,7 +30,7 @@ concurrency:
 env:
   # Configure these as repository variables when the target package is known.
   PACKAGE_INSTALL_COMMAND: ${{ vars.PACKAGE_INSTALL_COMMAND || 'pip install .' }}
-  PACKAGE_RUN_COMMAND: ${{ vars.PACKAGE_RUN_COMMAND }}
+  PACKAGE_RUN_COMMAND: ${{ vars.PACKAGE_RUN_COMMAND || 'python main.py --once' }}
 
 jobs:
   run-package:

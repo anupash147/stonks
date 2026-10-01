@@ -87,9 +87,16 @@ The workflow injects these secrets as environment variables only while the job
 is running. Do not put the values in workflow YAML, repository variables, or
 the repository files.
 
-Set the `PACKAGE_RUN_COMMAND` repository variable to `python main.py` so the
-generic scheduled workflow runs this bot. `PACKAGE_INSTALL_COMMAND` is
-optional and defaults to `pip install .`.
+The workflow defaults `PACKAGE_RUN_COMMAND` to `python main.py --once`. This
+runs one trading cycle immediately and exits cleanly, which is required for a
+scheduled GitHub Actions job. If you already created the repository variable,
+set it to:
+
+```text
+python main.py --once
+```
+
+`PACKAGE_INSTALL_COMMAND` is optional and defaults to `pip install .`.
 
 Non-sensitive overrides can be configured as repository variables, including
 `ALPACA_PAPER` (defaults to `true`), `TICKER_FILE` (defaults to
@@ -120,6 +127,9 @@ uv run python gen_tickers.py
 ```bash
 # Default mode (14-day calendar exit)
 uv run python main.py
+
+# Run one cycle immediately and exit (used by GitHub Actions)
+uv run python main.py --once
 
 # Enable trend-based stops (exit when price < 10-day EMA)
 uv run python main.py --ema_exit

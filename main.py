@@ -1,3 +1,4 @@
+import argparse
 import time
 from datetime import datetime, timedelta
 from typing import Literal
@@ -699,7 +700,7 @@ def bot_main():
         run_trading_cycle()
 
 
-def main():
+def main(once: bool = False):
     """Entry point for the trading bot."""
     # Validate at least one exit mode is enabled
     if not config.exit.any_exit_enabled:
@@ -709,8 +710,19 @@ def main():
         )
         return
 
-    bot_main()
+    if once:
+        console.print("[bold green]Running one trading cycle and exiting[/bold green]")
+        run_trading_cycle()
+    else:
+        bot_main()
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Run the Stonks trading bot")
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="run one trading cycle immediately and exit",
+    )
+    args = parser.parse_args()
+    main(once=args.once)
