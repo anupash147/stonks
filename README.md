@@ -74,7 +74,7 @@ TRAILING_STOP_TRAIL=2.0          # Trail by X% below peak price
 
 ### GitHub Actions configuration
 
-The scheduled workflow does not use a committed `.env` file. Configure the
+The manually dispatched workflow does not use a committed `.env` file. Configure the
 following two **repository secrets** at **Settings → Secrets and variables →
 Actions → New repository secret**:
 
@@ -89,7 +89,7 @@ the repository files.
 
 The workflow defaults `PACKAGE_RUN_COMMAND` to `python main.py --once`. This
 runs one trading cycle immediately and exits cleanly, which is required for a
-scheduled GitHub Actions job. If you already created the repository variable,
+cron-dispatched GitHub Actions job. If you already created the repository variable,
 set it to:
 
 ```text
@@ -103,6 +103,44 @@ Non-sensitive overrides can be configured as repository variables, including
 `tickers.txt`), and the strategy variables listed below. GitHub Actions
 secrets are preferred for credentials; repository variables are not encrypted
 and should not contain secrets.
+
+### External Cron Dispatch
+
+The workflow has no native GitHub schedule or execution-time gate. Push the
+workflow changes to `main` before configuring an external scheduler.
+
+Install GitHub CLI on an always-on host and run `gh auth login` as the same
+user that owns the crontab. That account needs permission to dispatch Actions
+workflows in `anupash147/stonks`.
+
+On a Linux cron implementation that supports `CRON_TZ`, add these entries
+with `crontab -e`:
+
+```cron
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+CRON_TZ=Etc/GMT+5
+
+25 10 * * 1-5 gh workflow run scheduled-package.yml --repo anupash147/stonks --ref main >> "$HOME/stonks-dispatch.log" 2>&1
+40 13 * * 1-5 gh workflow run scheduled-package.yml --repo anupash147/stonks --ref main >> "$HOME/stonks-dispatch.log" 2>&1
+25 16 * * 1-5 gh workflow run scheduled-package.yml --repo anupash147/stonks --ref main >> "$HOME/stonks-dispatch.log" 2>&1
+```
+
+These preserve the previous trigger times: 10:25, 13:40, and 16:25 fixed EST
+(UTC-5), five minutes before the nominal 10:30, 13:45, and 16:30 times.
+Use `CRON_TZ=America/New_York` instead only if the schedule should follow
+Eastern daylight saving time. These entries cover Monday through Friday,
+not exchange holidays; a trading-calendar guard is needed to exclude holidays
+and handle early closes. The final trigger is after the regular US stock
+market close with either timezone choice.
+
+macOS cron does not support `CRON_TZ`; merely setting `TZ` does not change its
+trigger times. Use a compatible Linux host, or translate these entries into
+the scheduler host's timezone. The host must stay awake and online.
+
+Cron success confirms dispatch, not completion of the trading cycle. Monitor
+the Actions runs separately. Runner startup can still be delayed. GitHub-hosted
+execution does not guarantee avoiding Yahoo Finance rate limits.
 
 ### Create Your Watchlist
 

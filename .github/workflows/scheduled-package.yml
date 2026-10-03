@@ -1,24 +1,7 @@
-name: Scheduled Package Runner
+name: Package Runner
 
 on:
-  schedule:
-    # Fixed EST (UTC-5), Monday through Friday.
-    # Start five minutes early: 10:25 EST = 15:25 UTC.
-    - cron: "25 15 * * 1-5"
-
-    # Start five minutes early: 13:40 EST = 18:40 UTC.
-    - cron: "40 18 * * 1-5"
-
-    # Start five minutes early: 16:25 EST = 21:25 UTC.
-    - cron: "25 21 * * 1-5"
-
   workflow_dispatch:
-    inputs:
-      run_now:
-        description: "Run the package immediately, without waiting for an EST schedule time"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -55,7 +38,6 @@ jobs:
           cache: pip
 
       - name: Validate required secrets are configured
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         shell: bash
         run: |
           set -euo pipefail
@@ -65,47 +47,10 @@ jobs:
             exit 1
           fi
 
-      - name: Verify EST execution time
-        id: schedule-window
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.run_now }}" == "true" ]]; then
-            echo "Manual test run requested; bypassing the EST schedule check."
-            echo "allowed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Etc/GMT+5 is intentionally UTC-5. POSIX Etc/GMT names have
-          # reversed signs, so this remains EST rather than switching to EDT.
-          est_time="$(TZ=Etc/GMT+5 date '+%H:%M %Z')"
-          echo "Current fixed EST time: ${est_time}"
-
-          current_minutes=$((10#${est_time:0:2} * 60 + 10#${est_time:3:2}))
-
-          case "${current_minutes}" in
-            625|626|627|628|629|630|631|632|633|634) # 10:25-10:34 EST
-              ;;
-            820|821|822|823|824|825|826|827|828|829) # 13:40-13:49 EST
-              ;;
-            985|986|987|988|989|990|991|992|993|994) # 16:25-16:34 EST
-              ;;
-            *)
-              echo "allowed=false" >> "$GITHUB_OUTPUT"
-              echo "This invocation is outside the configured EST execution windows."
-              exit 0
-              ;;
-          esac
-
-          echo "allowed=true" >> "$GITHUB_OUTPUT"
-
       - name: Install package
-        if: steps.schedule-window.outputs.allowed == 'true'
         run: ${{ env.PACKAGE_INSTALL_COMMAND }}
 
       - name: Run package
-        if: steps.schedule-window.outputs.allowed == 'true'
         shell: bash
         run: |
           set -euo pipefail
